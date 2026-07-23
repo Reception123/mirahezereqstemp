@@ -29,15 +29,11 @@ class RequestAccountManager extends RequestManager {
 		);
 	}
 
-	public function executeJob( string $username, string $email ): void {
+	public function executeJob(): void {
 		$this->jobQueueGroupFactory->makeJobQueueGroup()->push(
 			new JobSpecification(
 				CreateAccountJob::JOB_NAME,
-				[
-					'username' => $username,
-					'email' => $email,
-					'ccEmail' => $this->getRequesterCcEmail(),
-				]
+				[ 'id' => $this->getId() ]
 			)
 		);
 	}
@@ -127,6 +123,10 @@ class RequestAccountManager extends RequestManager {
 		return $this->row->request_comments;
 	}
 
+	public function getIp() {
+		return $this->row->request_ip;
+	}
+
 	public function userExists(): bool {
 		$user = $this->userFactory->newFromName( $this->getUsername() );
 
@@ -137,9 +137,10 @@ class RequestAccountManager extends RequestManager {
 	}
 
 	public function invalidStatus(): bool {
-		if ( $this->getStatus() === MirahezeRequestsStatus::STATUS_COMPLETE ) {
-			return true;
-		}
-		return false;
+		return in_array( $this->getStatus(), [
+			MirahezeRequestsStatus::STATUS_COMPLETE,
+			MirahezeRequestsStatus::STATUS_DECLINED,
+			MirahezeRequestsStatus::STATUS_STARTING,
+		], true );
 	}
 }

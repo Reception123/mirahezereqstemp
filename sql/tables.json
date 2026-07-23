@@ -218,6 +218,12 @@
 				"comment": "Optional additional comments from the requester",
 				"type": "blob",
 				"options": { "notnull": true, "length": 65530, "default": "" }
+			},
+			{
+				"name": "request_ip",
+				"comment": "The IP address the request was submitted from",
+				"type": "string",
+				"options": { "notnull": true, "length": 45 }
 			}
 		],
 		"indexes": [

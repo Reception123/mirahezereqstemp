@@ -37,6 +37,7 @@ class RequestAccountQueuePager extends RequestQueuePager {
 			'request_username' => $this->msg( 'requestaccount-username-short' )->text(),
 			'request_email' => $this->msg( 'requestaccount-email-short' )->text(),
 			'request_actor' => $this->msg( 'mirahezerequests-label-requester' )->text(),
+			'request_ip' => $this->msg( 'mirahezerequests-label-ip' )->text(),
 			'request_status' => $this->msg( 'status' )->text(),
 		];
 	}
@@ -59,7 +60,7 @@ class RequestAccountQueuePager extends RequestQueuePager {
 	protected function formatRowValue( string $name, $value ): string {
 		return match ( $name ) {
 			'request_timestamp' => $this->formatTimestamp( $value ),
-			'request_username', 'request_email' => htmlspecialchars( $value ),
+			'request_username', 'request_email', 'request_ip' => htmlspecialchars( $value ),
 			'request_actor' => $this->formatActorName( (int)$value ),
 			default => "Unable to format $name",
 		};
@@ -94,6 +95,7 @@ class RequestAccountQueuePager extends RequestQueuePager {
 			'request_timestamp',
 			'request_username',
 			'request_email',
+			'request_ip',
 		];
 	}
 

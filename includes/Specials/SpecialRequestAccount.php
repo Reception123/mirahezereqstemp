@@ -72,6 +72,7 @@ class SpecialRequestAccount extends SpecialRequest {
 			'request_explanation' => $data['explanation'],
 			'request_comments' => $data['comments'],
 			'request_ccemail' => (int)$data['CCemail'],
+			'request_ip' => $this->getRequest()->getIP(),
 			'request_status' => self::STATUS_PENDING,
 		];
 	}

@@ -67,6 +67,12 @@ class RequestAccountViewer extends RequestViewer {
 					$this->requestManager->getTimestamp(), true
 				),
 			],
+			'ip' => [
+				'label-message' => 'mirahezerequests-label-ip',
+				'type' => 'info',
+				'section' => 'details',
+				'default' => $this->requestManager->getIp(),
+			],
 			'status' => [
 				'label-message' => 'mirahezerequests-label-status',
 				'type' => 'text',
@@ -114,33 +120,42 @@ class RequestAccountViewer extends RequestViewer {
 		}
 
 		if ( $authority->isAllowed( 'handle-requestaccount' ) ) {
-			$formDescriptor += [
-				'handle-info' => [
+			$formDescriptor['handle-info'] = [
+				'type' => 'info',
+				'default' => $info,
+				'raw' => true,
+				'section' => 'handling',
+			];
+
+			if ( $invalidStatus ) {
+				$formDescriptor['handle-resolved'] = [
 					'type' => 'info',
-					'default' => $info,
+					'default' => $this->context->msg( 'mirahezerequests-status-conflict' )->escaped(),
 					'raw' => true,
 					'section' => 'handling',
-				],
-				'submit-accept' => [
-					'type' => 'submit',
-					'buttonlabel-message' => 'mirahezerequests-label-accept',
-					'disabled' => $invalidStatus || $this->requestManager->userExists(),
-					'section' => 'handling',
-				],
-				'submit-decline' => [
-					'type' => 'submit',
-					'flags' => [ 'destructive', 'primary' ],
-					'buttonlabel-message' => 'mirahezerequests-label-decline',
-					'disabled' => $invalidStatus,
-					'section' => 'handling',
-				],
-				'submit-decline-reason' => [
-					'type' => 'text',
-					'label-message' => 'mirahezerequests-label-decline-reason',
-					'section' => 'handling',
-					'validation-callback' => [ $this, 'isValidDeclineReason' ],
-				],
-			];
+				];
+			} else {
+				$formDescriptor += [
+					'submit-accept' => [
+						'type' => 'submit',
+						'buttonlabel-message' => 'mirahezerequests-label-accept',
+						'disabled' => $this->requestManager->userExists(),
+						'section' => 'handling',
+					],
+					'submit-decline' => [
+						'type' => 'submit',
+						'flags' => [ 'destructive', 'primary' ],
+						'buttonlabel-message' => 'mirahezerequests-label-decline',
+						'section' => 'handling',
+					],
+					'submit-decline-reason' => [
+						'type' => 'text',
+						'label-message' => 'mirahezerequests-label-decline-reason',
+						'section' => 'handling',
+						'validation-callback' => [ $this, 'isValidDeclineReason' ],
+					],
+				];
+			}
 		}
 
 		return $formDescriptor;
@@ -184,45 +199,38 @@ class RequestAccountViewer extends RequestViewer {
 			return;
 		}
 
-		// Always act on the stored request data, never on the submitted
-		// form values, since the readonly fields can still be tampered
-		// with in a raw POST request.
 		$username = $this->requestManager->getUsername();
-		$email = $this->requestManager->getEmail();
+		$requestTitle = SpecialPage::getTitleFor( 'RequestAccountQueue', (string)$this->requestManager->getId() );
 
 		if ( isset( $formData['submit-accept'] ) ) {
-			$this->requestManager->executeJob( $username, $email );
+			// The job verifies the outcome and sets the real final
+			// status; this is just an in-flight marker so the request
+			// can't be actioned again while it's being processed.
+			$this->requestManager->setStatus( self::STATUS_STARTING );
+			$this->requestManager->executeJob();
 
 			$logEntry = new ManualLogEntry( 'requestaccount', 'accept' );
 			$logEntry->setPerformer( $this->context->getUser() );
-			$logEntry->setTarget( SpecialPage::getTitleValueFor( 'RequestAccountQueue', (string)$this->requestManager->getId() ) );
+			$logEntry->setTarget( $requestTitle );
 			$logEntry->setParameters( [ '4::requestTarget' => $username ] );
 			$logEntry->publish( $logEntry->insert() );
 
-			$this->requestManager->setStatus( self::STATUS_COMPLETE );
-
-			$out->addHTML( Html::successBox(
-				$this->context->msg( 'mirahezerequests-request-accepted' )->escaped()
-			) );
-
+			$out->redirect( $requestTitle->getFullURL() );
 			return;
 		}
 
 		if ( isset( $formData['submit-decline'] ) ) {
 			$this->requestManager->sendDeclineEmail( $formData['submit-decline-reason'] );
+			$this->requestManager->setStatus( self::STATUS_DECLINED );
 
 			$logEntry = new ManualLogEntry( 'requestaccount', 'decline' );
 			$logEntry->setPerformer( $this->context->getUser() );
-			$logEntry->setTarget( SpecialPage::getTitleValueFor( 'RequestAccountQueue', (string)$this->requestManager->getId() ) );
+			$logEntry->setTarget( $requestTitle );
 			$logEntry->setComment( $formData['submit-decline-reason'] );
 			$logEntry->setParameters( [ '4::requestTarget' => $username ] );
 			$logEntry->publish( $logEntry->insert() );
 
-			$this->requestManager->setStatus( self::STATUS_DECLINED );
-
-			$out->addHTML( Html::successBox(
-				$this->context->msg( 'mirahezerequests-request-declined' )->escaped()
-			) );
+			$out->redirect( $requestTitle->getFullURL() );
 		}
 	}
 }

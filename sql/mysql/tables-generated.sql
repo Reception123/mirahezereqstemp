@@ -55,6 +55,7 @@ CREATE TABLE /*_*/account_requests (
   request_locked TINYINT UNSIGNED DEFAULT 0 NOT NULL,
   request_ccemail TINYINT UNSIGNED DEFAULT 0 NOT NULL,
   request_comments BLOB DEFAULT '' NOT NULL,
+  request_ip VARCHAR(45) NOT NULL,
   INDEX account_request_actor_timestamp (
     request_actor, request_timestamp
   ),

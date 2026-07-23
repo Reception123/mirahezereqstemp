@@ -31,7 +31,8 @@
 			"class": "Miraheze\\MirahezeRequests\\Jobs\\CreateAccountJob",
 			"services": [
 				"UserFactory",
-				"AuthManager"
+				"AuthManager",
+				"RequestAccountManager"
 			],
 			"needsPage": false
 		},

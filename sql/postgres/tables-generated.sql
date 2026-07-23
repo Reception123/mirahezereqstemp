@@ -52,6 +52,7 @@ CREATE TABLE account_requests (
   request_locked SMALLINT DEFAULT 0 NOT NULL,
   request_ccemail SMALLINT DEFAULT 0 NOT NULL,
   request_comments TEXT DEFAULT '' NOT NULL,
+  request_ip VARCHAR(45) NOT NULL,
   PRIMARY KEY(request_id)
 );
 

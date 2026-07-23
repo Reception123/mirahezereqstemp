@@ -5,42 +5,55 @@ namespace Miraheze\MirahezeRequests\Jobs;
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Auth\TemporaryPasswordAuthenticationRequest;
 use MediaWiki\JobQueue\Job;
+use MediaWiki\Logging\ManualLogEntry;
 use MediaWiki\Mail\MailAddress;
 use MediaWiki\Mail\UserMailer;
 use MediaWiki\User\User;
 use MediaWiki\User\UserFactory;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 
 class CreateAccountJob extends Job implements MirahezeRequestsStatus {
 
 	public const string JOB_NAME = 'MirahezeRequestsCreateAccountJob';
 
-	private readonly string $username;
-	private readonly string $email;
-	private readonly ?string $ccEmail;
+	private readonly int $id;
 
 	public function __construct(
 		array $params,
 		private readonly UserFactory $userFactory,
 		private readonly AuthManager $authManager,
+		private readonly RequestAccountManager $requestManager,
 	) {
 		parent::__construct( self::JOB_NAME, $params );
-		$this->username = $params['username'];
-		$this->email = $params['email'];
-		$this->ccEmail = $params['ccEmail'] ?? null;
+		$this->id = $params['id'];
 	}
 
 	public function run(): bool {
-		$user = $this->userFactory->newFromName( $this->username );
+		$this->requestManager->getById( $this->id );
 
-		if ( !$user || $user->isRegistered() ) {
+		$username = $this->requestManager->getUsername();
+		$email = $this->requestManager->getEmail();
+
+		$user = $this->userFactory->newFromName( $username );
+
+		if ( !$user ) {
+			$this->requestManager->setStatus( self::STATUS_FAILED );
 			return false;
 		}
 
-		$user->setEmail( $this->email );
+		if ( $user->isRegistered() ) {
+			// The account already exists, the desired end state is
+			// already satisfied; nothing further to do.
+			$this->requestManager->setStatus( self::STATUS_COMPLETE );
+			return true;
+		}
+
+		$user->setEmail( $email );
 
 		$status = $user->addToDatabase();
 		if ( !$status->isGood() ) {
+			$this->requestManager->setStatus( self::STATUS_FAILED );
 			return false;
 		}
 
@@ -49,36 +62,47 @@ class CreateAccountJob extends Job implements MirahezeRequestsStatus {
 		$sysUser = User::newSystemUser( 'MirahezeRequests', [ 'steal' => true ] );
 
 		$req->action = AuthManager::ACTION_CHANGE;
-		$req->username = $this->username;
+		$req->username = $username;
 		$req->mailpassword = false; // send our own custom email
 		$req->caller = $sysUser->getName();
 
 		$status = $this->authManager->allowsAuthenticationDataChange( $req, false );
 		if ( !$status->isGood() ) {
+			$this->requestManager->setStatus( self::STATUS_FAILED );
 			return false;
 		}
 
 		$this->authManager->changeAuthenticationData( $req );
 
 		$subjectMessage = wfMessage( 'requestaccount-created-email-title' );
-		$bodyMessage = wfMessage( 'requestaccount-created-email-text', $this->username, $newTempPassword );
+		$bodyMessage = wfMessage( 'requestaccount-created-email-text', $username, $newTempPassword );
 
 		$from = MailAddress::newFromUser( $sysUser );
 		UserMailer::send(
-			new MailAddress( $this->email, $this->username ),
+			new MailAddress( $email, $username ),
 			$from,
 			$subjectMessage->text(),
 			$bodyMessage->text()
 		);
 
-		if ( $this->ccEmail && $this->ccEmail !== $this->email ) {
+		$ccEmail = $this->requestManager->getRequesterCcEmail();
+		if ( $ccEmail && $ccEmail !== $email ) {
 			UserMailer::send(
-				new MailAddress( $this->ccEmail ),
+				new MailAddress( $ccEmail ),
 				$from,
 				$subjectMessage->text(),
 				$bodyMessage->text()
 			);
 		}
+
+		$logEntry = new ManualLogEntry( 'newusers', 'byemail' );
+		$logEntry->setPerformer( $sysUser );
+		$logEntry->setTarget( $user->getUserPage() );
+		$logEntry->setComment( '' );
+		$logEntry->setParameters( [ '4::userid' => $user->getId() ] );
+		$logEntry->publish( $logEntry->insert() );
+
+		$this->requestManager->setStatus( self::STATUS_COMPLETE );
 
 		return true;
 	}

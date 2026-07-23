@@ -49,7 +49,8 @@ CREATE TABLE /*_*/account_requests (
   request_status TEXT NOT NULL,
   request_locked SMALLINT UNSIGNED DEFAULT 0 NOT NULL,
   request_ccemail SMALLINT UNSIGNED DEFAULT 0 NOT NULL,
-  request_comments BLOB DEFAULT '' NOT NULL
+  request_comments BLOB DEFAULT '' NOT NULL,
+  request_ip VARCHAR(45) NOT NULL
 );
 
 CREATE INDEX account_request_actor_timestamp ON /*_*/account_requests (

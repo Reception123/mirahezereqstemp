@@ -12,6 +12,7 @@
 	"mirahezerequests-label-decline-reason": "Reason for declining:",
 	"mirahezerequests-label-requested-date": "Requested date",
 	"mirahezerequests-label-requester": "Requester",
+	"mirahezerequests-label-ip": "IP address",
 	"mirahezerequests-label-status": "Status",
 	"mirahezerequests-nopermission": "You do not have permission to view this request.",
 	"mirahezerequests-notcentral": "Not the central wiki",

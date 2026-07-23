@@ -29,6 +29,7 @@ abstract class RequestQueue extends SpecialPage implements MirahezeRequestsStatu
 
 	public function execute( $subPage ): void {
 		$this->setHeaders();
+		$this->checkPermissions();
 
 		if ( $subPage ) {
 			$this->getOutput()->addBacklinkSubtitle( $this->getPageTitle() );
